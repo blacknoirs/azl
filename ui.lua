@@ -395,7 +395,7 @@ function Library:CreateWindow()
         BackgroundTransparency = 1
     })
 
-    local logoText = "reevohub"
+    local logoText = "ReEvolution"
     local letters = {}
     local baseColor = C.Accent
     local glowColor = Color3.fromRGB(220, 200, 255)
