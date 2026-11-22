@@ -452,7 +452,7 @@ local function Tween(o, p, t, s)
     TS:Create(o, TweenInfo.new(t or 0.2, s, Enum.EasingDirection.Out), p):Play()
 end
 
--- CreateWindow config (all optional):
+
 --   Icon       = 123456789 / "rbxassetid://..." / "https://.../icon.png" / "folder/icon.png"
 --   IconTint   = true (follows accent) / Color3 (fixed color) / nil (original image colors)
 --   Title      = "ReEvolution"   (animated logo text)
@@ -1522,7 +1522,7 @@ function Library:CreateWindow(config)
             PaddingBottom = UDim.new(0, 4)
         })
 
-        local logoText = config.WatermarkText or "ReevoHub"
+        local logoText = config.WatermarkText or "Ruby"
         local logoContainer = New("Frame", {
             Name = "Logo",
             Parent = ContentFrame,
