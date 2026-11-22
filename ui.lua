@@ -7,7 +7,7 @@ local HS = game:GetService("HttpService")
 Library.IsMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 
 local ConfigSystem = {
-    FolderName = "reevoalpha",
+    FolderName = "rubyazl",
     CurrentConfig = "default",
     Configs = {},
     Elements = {}
@@ -149,7 +149,7 @@ function Library:LoadNotificationSounds()
     spawn(function()
         for soundName, url in pairs(Library.NotificationSounds.URLs) do
             pcall(function()
-                local filename = "reevohub_notif_" .. soundName:lower() .. ".wav"
+                local filename = "rubyazl_notif_" .. soundName:lower() .. ".wav"
 
                 local success, data = pcall(function()
                     return game:HttpGet(url, true)
@@ -479,7 +479,7 @@ local function ensureTooltip()
     if TooltipGui and TooltipGui.Parent then return end
 
     TooltipGui = New("ScreenGui", {
-        Name = "ReEvoHubTooltip",
+        Name = "rubyazlTooltip",
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         ResetOnSpawn = false,
         IgnoreGuiInset = true,
@@ -584,13 +584,13 @@ end
 --   Icon       = 123456789 / "rbxassetid://..." / "https://.../icon.png" / "folder/icon.png"
 --   IconTint   = true (follows accent) / Color3 (fixed color) / nil (original image colors)
 --   Title      = "ReEvolution"   (animated logo text)
---   WatermarkText = "ReevoHub"
+--   WatermarkText = "rubyazl"
 --   ToggleKey  = Enum.KeyCode.K
 function Library:CreateWindow(config)
     config = config or {}
 
     local SG = New("ScreenGui", {
-        Name = "ReevoHubUI",
+        Name = "rubyazlUI",
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         ResetOnSpawn = false
     })
@@ -1654,7 +1654,7 @@ function Library:CreateWindow(config)
 
     local function CreateWatermark()
         local Watermark = New("ScreenGui", {
-            Name = "ReEvoHubWatermark",
+            Name = "rubyazlWatermark",
             ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
             ResetOnSpawn = false
         })
@@ -1711,7 +1711,7 @@ function Library:CreateWindow(config)
             PaddingBottom = UDim.new(0, 4)
         })
 
-        local logoText = config.WatermarkText or "ReevoHub"
+        local logoText = config.WatermarkText or "rubyazl"
         local logoContainer = New("Frame", {
             Name = "Logo",
             Parent = ContentFrame,
@@ -3766,7 +3766,7 @@ function Library:CreateKeybinds()
         return stub
     end
     local KeybindsGui = New("ScreenGui", {
-        Name = "ReEvoHubKeybinds",
+        Name = "rubyazlKeybinds",
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         ResetOnSpawn = false
     })
@@ -4385,7 +4385,7 @@ function Library:CreateNotification(config)
 
     if not Library.NotificationGui then
         local NotifGui = New("ScreenGui", {
-            Name = "ReEvoHubNotifications",
+            Name = "rubyazlNotifications",
             ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
             ResetOnSpawn = false
         })
