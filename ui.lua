@@ -223,7 +223,108 @@ local C = {
 
 Library.AccentElements = {}
 Library.AccentTextElements = {}
+Library.AccentImages = {}
 Library.Colors = C
+
+-- ICON SYSTEM ------------------------------------------------------------
+-- Accepted icon formats:
+--   123456789                          (asset id number)
+--   "123456789"                        (asset id string)
+--   "rbxassetid://123456789"           (asset uri)
+--   "https://example.com/icon.png"     (downloaded + cached, needs executor file functions)
+--   "myfolder/icon.png"                (file in your executor workspace)
+local iconCache = {}
+
+local function resolveIcon(icon)
+    if icon == nil or icon == "" then return nil end
+    if iconCache[icon] then return iconCache[icon] end
+
+    local result = nil
+
+    if typeof(icon) == "number" then
+        result = "rbxassetid://" .. tostring(icon)
+    elseif typeof(icon) == "string" then
+        if icon:match("^%d+$") then
+            result = "rbxassetid://" .. icon
+        elseif icon:match("^rbxassetid://") or icon:match("^rbxasset://") or icon:match("^rbxthumb://") or
+            icon:match("^rbxgameasset://") or icon:match("^https?://www%.roblox%.com/asset") then
+            result = icon
+        elseif icon:match("^https?://") then
+            local getasset = getcustomasset or getsynasset
+            if writefile and getasset then
+                pcall(function()
+                    local hash = 0
+                    for i = 1, #icon do
+                        hash = (hash * 31 + icon:byte(i)) % 4294967296
+                    end
+
+                    if isfolder and makefolder and not isfolder(ConfigSystem.FolderName) then
+                        makefolder(ConfigSystem.FolderName)
+                    end
+
+                    local cachePath = ConfigSystem.FolderName .. "/icon_" .. tostring(hash) .. ".png"
+
+                    if not (isfile and isfile(cachePath)) then
+                        local data = game:HttpGet(icon, true)
+                        if data and #data > 0 then
+                            writefile(cachePath, data)
+                        end
+                    end
+
+                    if isfile and isfile(cachePath) then
+                        result = getasset(cachePath)
+                    end
+                end)
+            end
+        else
+            local getasset = getcustomasset or getsynasset
+            if isfile and getasset then
+                pcall(function()
+                    if isfile(icon) then
+                        result = getasset(icon)
+                    end
+                end)
+            end
+            if not result then
+                result = icon
+            end
+        end
+    end
+
+    if result and result ~= "" then
+        iconCache[icon] = result
+    end
+
+    return result
+end
+
+Library.ResolveIcon = resolveIcon
+
+local function setImageAsync(imageLabel, icon)
+    task.spawn(function()
+        local resolved = resolveIcon(icon)
+        if resolved and imageLabel and imageLabel.Parent then
+            imageLabel.Image = resolved
+        end
+    end)
+end
+
+local function applyImageTint(img, tint)
+    for i = #Library.AccentImages, 1, -1 do
+        if Library.AccentImages[i] == img then
+            table.remove(Library.AccentImages, i)
+        end
+    end
+
+    if tint == true then
+        img.ImageColor3 = C.Accent
+        table.insert(Library.AccentImages, img)
+    elseif typeof(tint) == "Color3" then
+        img.ImageColor3 = tint
+    else
+        img.ImageColor3 = Color3.new(1, 1, 1)
+    end
+end
 
 function Library:UpdateAccentColor(newColor)
     C.Accent = newColor
@@ -247,10 +348,19 @@ function Library:UpdateAccentColor(newColor)
         end
     end
 
+    for _, element in pairs(Library.AccentImages) do
+        if element and element.Parent then
+            element.ImageColor3 = newColor
+        end
+    end
+
     if Library.Windows then
         for _, window in pairs(Library.Windows) do
             if window.CurrentCategory and window.CurrentCategory.Button then
                 window.CurrentCategory.Button.TextColor3 = newColor
+                if window.CurrentCategory.Icon and window.CurrentCategory.Icon.Parent then
+                    window.CurrentCategory.Icon.ImageColor3 = newColor
+                end
             end
         end
     end
@@ -321,6 +431,16 @@ function Library:UpdateAccentColor(newColor)
     end
 end
 
+function Library:SetIcon(icon, tint)
+    if Library.Windows then
+        for _, window in pairs(Library.Windows) do
+            if window.SetIcon then
+                window:SetIcon(icon, tint)
+            end
+        end
+    end
+end
+
 local function New(c, p)
     local o = Instance.new(c)
     for k, v in pairs(p) do o[k] = v end
@@ -328,11 +448,19 @@ local function New(c, p)
 end
 
 local function Tween(o, p, t, s)
-    s = s or Enum.EasingStyle.Quad
+    s = s or Enum.EasingStyle.Quart
     TS:Create(o, TweenInfo.new(t or 0.2, s, Enum.EasingDirection.Out), p):Play()
 end
 
-function Library:CreateWindow()
+-- CreateWindow config (all optional):
+--   Icon       = 123456789 / "rbxassetid://..." / "https://.../icon.png" / "folder/icon.png"
+--   IconTint   = true (follows accent) / Color3 (fixed color) / nil (original image colors)
+--   Title      = "ReEvolution"   (animated logo text)
+--   WatermarkText = "ReevoHub"
+--   ToggleKey  = Enum.KeyCode.K
+function Library:CreateWindow(config)
+    config = config or {}
+
     local SG = New("ScreenGui", {
         Name = "ReevoHubUI",
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -361,6 +489,7 @@ function Library:CreateWindow()
     })
 
     local backdropHideThread = nil
+    local mainHideThread = nil
 
     local Main = New("Frame", {
         Name = "Main",
@@ -430,7 +559,7 @@ function Library:CreateWindow()
         BorderSizePixel = 0
     })
 
-    New("UIGradient", {
+    local TopAccentGradient = New("UIGradient", {
         Parent = TopAccentLine,
         Transparency = NumberSequence.new({
             NumberSequenceKeypoint.new(0, 1),
@@ -441,12 +570,22 @@ function Library:CreateWindow()
 
     table.insert(Library.AccentElements, TopAccentLine)
 
+    spawn(function()
+        while true do
+            for o = 0, 1, 0.01 do
+                if not TopAccentGradient.Parent then return end
+                TopAccentGradient.Offset = Vector2.new(math.sin(o * math.pi * 2) * 0.25, 0)
+                task.wait(0.04)
+            end
+        end
+    end)
+
     local LogoMark = New("Frame", {
         Name = "LogoMark",
         Parent = TopBar,
         AnchorPoint = Vector2.new(0, 0.5),
         Position = UDim2.new(0, 12, 0.5, 0),
-        Size = UDim2.fromOffset(20, 20),
+        Size = UDim2.fromOffset(22, 22),
         BackgroundColor3 = C.Accent,
         BorderSizePixel = 0
     })
@@ -465,16 +604,30 @@ function Library:CreateWindow()
 
     New("UICorner", { Parent = LogoMarkDot, CornerRadius = UDim.new(1, 0) })
 
+    local LogoImage = New("ImageLabel", {
+        Name = "LogoImage",
+        Parent = LogoMark,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScaleType = Enum.ScaleType.Fit,
+        Image = "",
+        Visible = false
+    })
+
     table.insert(Library.AccentElements, LogoMark)
+
+    local logoText = config.Title or "ReEvolution"
 
     local LogoContainer = New("Frame", {
         Parent = TopBar,
-        Position = UDim2.new(0, 40, 0, 0),
-        Size = UDim2.new(0, 120, 1, 0),
+        Position = UDim2.new(0, 42, 0, 0),
+        Size = UDim2.new(0, #logoText * 10, 1, 0),
         BackgroundTransparency = 1
     })
 
-    local logoText = "ReEvolution"
     local letters = {}
     local baseColor = C.Accent
     local glowColor = Color3.fromRGB(220, 200, 255)
@@ -517,7 +670,7 @@ function Library:CreateWindow()
         Parent = TopBar,
         AnchorPoint = Vector2.new(0.5, 0),
         Position = UDim2.new(0.5, 0, 0, 0),
-        Size = UDim2.new(0, 400, 1, 0),
+        Size = UDim2.new(0, 440, 1, 0),
         BackgroundTransparency = 1
     })
 
@@ -792,6 +945,7 @@ function Library:CreateWindow()
         BorderSizePixel = 0,
         ScrollBarThickness = 3,
         ScrollBarImageColor3 = C.Accent,
+        ScrollBarImageTransparency = 0.3,
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y
     })
@@ -857,11 +1011,12 @@ function Library:CreateWindow()
         end
     end)
 
-    RS.RenderStepped:Connect(function()
+    RS.RenderStepped:Connect(function(dt)
         if dragging and dragInput then
             local delta = dragInput.Position - dragStart
-            Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale,
+            local target = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale,
                 startPos.Y.Offset + delta.Y)
+            Main.Position = Main.Position:Lerp(target, math.clamp(dt * 22, 0, 1))
         end
     end)
 
@@ -877,15 +1032,22 @@ function Library:CreateWindow()
         TopTabButtons = {},
         Categories = {},
         Visible = false,
-        ToggleKey = Enum.KeyCode.K,
+        ToggleKey = config.ToggleKey or Enum.KeyCode.K,
         BuildLabel = BuildLabel,
         UserLabel = UserLabel,
-        PlayerName = playerName
+        PlayerName = playerName,
+        BaseScale = 1,
+        Icon = nil,
+        IconTint = nil
     }
 
     function W:SetVisible(visible)
         W.Visible = visible
-        Main.Visible = visible
+
+        if mainHideThread then
+            pcall(function() task.cancel(mainHideThread) end)
+            mainHideThread = nil
+        end
 
         if backdropHideThread then
             pcall(function() task.cancel(backdropHideThread) end)
@@ -893,6 +1055,10 @@ function Library:CreateWindow()
         end
 
         if visible then
+            Main.Visible = true
+            MainUIScale.Scale = W.BaseScale * 0.94
+            Tween(MainUIScale, { Scale = W.BaseScale }, 0.4, Enum.EasingStyle.Back)
+
             Backdrop.Visible = true
             Backdrop.BackgroundTransparency = 1
 
@@ -900,6 +1066,17 @@ function Library:CreateWindow()
                 Tween(Backdrop, { BackgroundTransparency = 0.55 }, 0.3, Enum.EasingStyle.Sine)
             end)
         else
+            Tween(MainUIScale, { Scale = W.BaseScale * 0.96 }, 0.2, Enum.EasingStyle.Quad)
+
+            mainHideThread = task.spawn(function()
+                task.wait(0.2)
+                if not W.Visible then
+                    Main.Visible = false
+                    MainUIScale.Scale = W.BaseScale
+                end
+                mainHideThread = nil
+            end)
+
             local success = pcall(function()
                 Tween(Backdrop, { BackgroundTransparency = 1 }, 0.3, Enum.EasingStyle.Sine)
             end)
@@ -944,7 +1121,55 @@ function Library:CreateWindow()
 
     function W:SetUIScale(scale)
         local scaleValue = math.clamp(scale, 50, 150) / 100
+        W.BaseScale = scaleValue
         MainUIScale.Scale = scaleValue
+    end
+
+    -- Set / change / remove the window icon at any time.
+    --   W:SetIcon(123456789)                 -> image as-is
+    --   W:SetIcon("https://.../icon.png", true)  -> downloaded, tinted with accent color
+    --   W:SetIcon(123456789, Color3.new(1,1,1)) -> fixed tint
+    --   W:SetIcon(nil)                       -> back to the default logo mark
+    function W:SetIcon(icon, tint)
+        W.Icon = icon
+        if tint ~= nil then
+            W.IconTint = tint
+        end
+
+        task.spawn(function()
+            local img = icon and resolveIcon(icon)
+
+            if not img then
+                LogoImage.Visible = false
+                LogoImage.Image = ""
+                LogoMark.BackgroundTransparency = 0
+                LogoMarkDot.Visible = true
+
+                if W.MobileIconImage then
+                    W.MobileIconImage.Visible = false
+                    W.MobileIconImage.Image = ""
+                end
+                if W.MobileIconText then
+                    W.MobileIconText.Visible = true
+                end
+                return
+            end
+
+            LogoImage.Image = img
+            LogoImage.Visible = true
+            LogoMark.BackgroundTransparency = 1
+            LogoMarkDot.Visible = false
+            applyImageTint(LogoImage, W.IconTint)
+
+            if W.MobileIconImage then
+                W.MobileIconImage.Image = img
+                W.MobileIconImage.Visible = true
+                applyImageTint(W.MobileIconImage, typeof(W.IconTint) == "Color3" and W.IconTint or nil)
+            end
+            if W.MobileIconText then
+                W.MobileIconText.Visible = false
+            end
+        end)
     end
 
     UIS.InputBegan:Connect(function(input, gameProcessed)
@@ -956,7 +1181,10 @@ function Library:CreateWindow()
     local isMobile = Library.IsMobile
     W.IsMobile = isMobile
     W.MobileButton = nil
-    if isMobile then MainUIScale.Scale = 0.60 end
+    if isMobile then
+        W.BaseScale = 0.60
+        MainUIScale.Scale = 0.60
+    end
 
     if isMobile then
         local MobileButton = New("Frame", {
@@ -992,6 +1220,20 @@ function Library:CreateWindow()
             ZIndex = 101
         })
 
+        local MobileIconImage = New("ImageLabel", {
+            Name = "MobileIconImage",
+            Parent = MobileButton,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            Size = UDim2.new(0.58, 0, 0.58, 0),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ScaleType = Enum.ScaleType.Fit,
+            Image = "",
+            Visible = false,
+            ZIndex = 101
+        })
+
         local MobileInteract = New("TextButton", {
             Parent = MobileButton,
             Size = UDim2.new(1, 0, 1, 0),
@@ -1002,6 +1244,9 @@ function Library:CreateWindow()
         })
 
         table.insert(Library.AccentElements, MobileButton)
+
+        W.MobileIconImage = MobileIconImage
+        W.MobileIconText = MobileIcon
 
         local isDragging = false
         local wasDragged = false
@@ -1054,11 +1299,16 @@ function Library:CreateWindow()
         local _origSetVisible = W.SetVisible
         function W:SetVisible(visible)
             _origSetVisible(self, visible)
+            if not MobileIconImage.Visible then
+                if visible then
+                    MobileIcon.Text = "\xE2\x9C\x95"
+                else
+                    MobileIcon.Text = "\xE2\x98\xB0"
+                end
+            end
             if visible then
-                MobileIcon.Text = "\xE2\x9C\x95"
                 Tween(MobileButton, { BackgroundTransparency = 0.4 }, 0.15, Enum.EasingStyle.Sine)
             else
-                MobileIcon.Text = "\xE2\x98\xB0"
                 Tween(MobileButton, { BackgroundTransparency = 0.1 }, 0.15, Enum.EasingStyle.Sine)
             end
         end
@@ -1074,6 +1324,10 @@ function Library:CreateWindow()
     end)
 
     W:SetVisible(true)
+
+    if config.Icon ~= nil then
+        W:SetIcon(config.Icon, config.IconTint)
+    end
 
     Library:LoadNotificationSounds()
 
@@ -1268,7 +1522,7 @@ function Library:CreateWindow()
             PaddingBottom = UDim.new(0, 4)
         })
 
-        local logoText = "ReevoHub"
+        local logoText = config.WatermarkText or "ReevoHub"
         local logoContainer = New("Frame", {
             Name = "Logo",
             Parent = ContentFrame,
@@ -1440,15 +1694,16 @@ function Library:CreateWindow()
             end
         end)
 
-        RS.RenderStepped:Connect(function()
+        RS.RenderStepped:Connect(function(dt)
             if dragging and dragInput then
                 local delta = dragInput.Position - dragStart
-                WatermarkFrame.Position = UDim2.new(
+                local target = UDim2.new(
                     startPos.X.Scale,
                     startPos.X.Offset + delta.X,
                     startPos.Y.Scale,
                     startPos.Y.Offset + delta.Y
                 )
+                WatermarkFrame.Position = WatermarkFrame.Position:Lerp(target, math.clamp(dt * 22, 0, 1))
             end
         end)
 
@@ -1494,13 +1749,15 @@ function Library:CreateWindow()
         W.Watermark = watermark
     end)
 
-    function W:CreateTopTab(name)
+    -- CreateTopTab(name, icon) : icon is optional, same formats as the window icon
+    function W:CreateTopTab(name, icon)
         local T = { Name = name, Window = W, Categories = {}, LastSelectedCategory = nil }
+        local hasIcon = icon ~= nil and icon ~= ""
 
         local Btn = New("TextButton", {
             Name = name,
             Parent = TopTabs,
-            Size = UDim2.new(0, 80, 0, 26),
+            Size = UDim2.new(0, hasIcon and 100 or 80, 0, 26),
             BackgroundColor3 = C.Element,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
@@ -1512,6 +1769,26 @@ function Library:CreateWindow()
         })
 
         New("UICorner", { Parent = Btn, CornerRadius = UDim.new(0, 8) })
+
+        if hasIcon then
+            New("UIPadding", { Parent = Btn, PaddingLeft = UDim.new(0, 18) })
+
+            local TabIcon = New("ImageLabel", {
+                Name = "Icon",
+                Parent = Btn,
+                AnchorPoint = Vector2.new(0, 0.5),
+                Position = UDim2.new(0, -8, 0.5, 0),
+                Size = UDim2.fromOffset(14, 14),
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                Image = "",
+                ImageColor3 = C.TextDim,
+                ScaleType = Enum.ScaleType.Fit
+            })
+
+            T.Icon = TabIcon
+            setImageAsync(TabIcon, icon)
+        end
 
         local Line = New("Frame", {
             Name = "Line",
@@ -1539,12 +1816,18 @@ function Library:CreateWindow()
         Btn.MouseEnter:Connect(function()
             if W.CurrentTopTab ~= T then
                 Tween(Btn, { TextColor3 = Color3.fromRGB(190, 192, 212), BackgroundTransparency = 0.6 }, 0.15)
+                if T.Icon then
+                    Tween(T.Icon, { ImageColor3 = Color3.fromRGB(190, 192, 212) }, 0.15)
+                end
             end
         end)
 
         Btn.MouseLeave:Connect(function()
             if W.CurrentTopTab ~= T then
                 Tween(Btn, { TextColor3 = C.TextDim, BackgroundTransparency = 1 }, 0.15)
+                if T.Icon then
+                    Tween(T.Icon, { ImageColor3 = C.TextDim }, 0.15)
+                end
             end
         end)
 
@@ -1571,6 +1854,9 @@ function Library:CreateWindow()
 
         for _, t in pairs(W.TopTabButtons) do
             Tween(t.Button, { TextColor3 = C.TextDim, BackgroundTransparency = 1 }, 0.2)
+            if t.Icon then
+                Tween(t.Icon, { ImageColor3 = C.TextDim }, 0.2)
+            end
             if t.Line.Visible and t ~= tab then
                 t.Line.Visible = false
                 t.Line.Size = UDim2.new(0, 0, 0, 2)
@@ -1578,6 +1864,9 @@ function Library:CreateWindow()
         end
 
         Tween(tab.Button, { TextColor3 = C.Text, BackgroundTransparency = 0 }, 0.2)
+        if tab.Icon then
+            Tween(tab.Icon, { ImageColor3 = C.Text }, 0.2)
+        end
         tab.Line.Visible = true
         tab.Line.Size = UDim2.new(0, 0, 0, 2)
         Tween(tab.Line, { Size = UDim2.new(0, 18, 0, 2) }, 0.3, Enum.EasingStyle.Back)
@@ -1594,6 +1883,9 @@ function Library:CreateWindow()
                 spawn(function()
                     task.wait(i * 0.03)
                     Tween(cat.Button, { TextTransparency = 0 }, 0.15, Enum.EasingStyle.Sine)
+                    if cat.Icon and cat.Icon.Parent then
+                        Tween(cat.Icon, { ImageTransparency = 0 }, 0.15, Enum.EasingStyle.Sine)
+                    end
                 end)
             end
         end
@@ -1607,10 +1899,14 @@ function Library:CreateWindow()
         end
     end
 
-    function W:CreateCategory(topTab, name)
-        local Cat = { Name = name, TopTab = topTab, Sections = {}, Button = nil }
+    -- CreateCategory(topTab, name, icon) : icon is optional
+    function W:CreateCategory(topTab, name, icon)
+        local Cat = { Name = name, TopTab = topTab, Sections = {}, Button = nil, IconId = icon }
 
         function Cat:Show()
+            local hasIcon = Cat.IconId ~= nil and Cat.IconId ~= ""
+            local padLeft = hasIcon and 38 or 16
+
             local Btn = New("TextButton", {
                 Name = name,
                 Parent = SideList,
@@ -1628,13 +1924,13 @@ function Library:CreateWindow()
             })
 
             New("UICorner", { Parent = Btn, CornerRadius = UDim.new(0, 8) })
-            New("UIPadding", { Parent = Btn, PaddingLeft = UDim.new(0, 16) })
+            New("UIPadding", { Parent = Btn, PaddingLeft = UDim.new(0, padLeft) })
 
             local Border = New("Frame", {
                 Name = "Border",
                 Parent = Btn,
                 AnchorPoint = Vector2.new(0, 0.5),
-                Position = UDim2.new(0, -12, 0.5, 0),
+                Position = UDim2.new(0, -(padLeft - 4), 0.5, 0),
                 Size = UDim2.new(0, 3, 0, 16),
                 BackgroundColor3 = C.Accent,
                 BorderSizePixel = 0,
@@ -1647,6 +1943,26 @@ function Library:CreateWindow()
 
             Cat.Button = Btn
             Cat.Border = Border
+            Cat.Icon = nil
+
+            if hasIcon then
+                local CatIcon = New("ImageLabel", {
+                    Name = "Icon",
+                    Parent = Btn,
+                    AnchorPoint = Vector2.new(0, 0.5),
+                    Position = UDim2.new(0, -(padLeft - 14), 0.5, 0),
+                    Size = UDim2.fromOffset(16, 16),
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    Image = "",
+                    ImageColor3 = C.TextDim,
+                    ImageTransparency = 1,
+                    ScaleType = Enum.ScaleType.Fit
+                })
+
+                Cat.Icon = CatIcon
+                setImageAsync(CatIcon, Cat.IconId)
+            end
 
             Btn.MouseButton1Click:Connect(function()
                 Cat:Select()
@@ -1658,6 +1974,9 @@ function Library:CreateWindow()
                         TextColor3 = Color3.fromRGB(190, 192, 212),
                         BackgroundTransparency = 0.6
                     }, 0.2, Enum.EasingStyle.Sine)
+                    if Cat.Icon then
+                        Tween(Cat.Icon, { ImageColor3 = Color3.fromRGB(190, 192, 212) }, 0.2, Enum.EasingStyle.Sine)
+                    end
                 end
             end)
 
@@ -1667,6 +1986,9 @@ function Library:CreateWindow()
                         TextColor3 = C.TextDim,
                         BackgroundTransparency = 1
                     }, 0.2, Enum.EasingStyle.Sine)
+                    if Cat.Icon then
+                        Tween(Cat.Icon, { ImageColor3 = C.TextDim }, 0.2, Enum.EasingStyle.Sine)
+                    end
                 end
             end)
         end
@@ -1680,11 +2002,18 @@ function Library:CreateWindow()
                     if c:FindFirstChild("Border") then
                         c.Border.Visible = false
                     end
+                    local otherIcon = c:FindFirstChild("Icon")
+                    if otherIcon then
+                        Tween(otherIcon, { ImageColor3 = C.TextDim }, 0.15, Enum.EasingStyle.Sine)
+                    end
                 end
             end
 
             if Cat.Button then
                 Tween(Cat.Button, { TextColor3 = C.Accent, BackgroundTransparency = 0 }, 0.15, Enum.EasingStyle.Sine)
+                if Cat.Icon then
+                    Tween(Cat.Icon, { ImageColor3 = C.Accent }, 0.15, Enum.EasingStyle.Sine)
+                end
                 Cat.Border.Visible = true
                 Cat.Border.BackgroundTransparency = 1
                 Tween(Cat.Border, { BackgroundTransparency = 0 }, 0.2, Enum.EasingStyle.Sine)
@@ -1711,10 +2040,17 @@ function Library:CreateWindow()
                 end
             end
 
+            local stagger = 0
             for _, sec in pairs(Cat.Sections) do
                 sec.Frame.Visible = true
                 sec.Frame.BackgroundTransparency = 1
-                Tween(sec.Frame, { BackgroundTransparency = 0 }, 0.15, Enum.EasingStyle.Sine)
+                local delayTime = stagger * 0.045
+                stagger = stagger + 1
+                task.delay(delayTime, function()
+                    if sec.Frame and sec.Frame.Parent then
+                        Tween(sec.Frame, { BackgroundTransparency = 0 }, 0.25, Enum.EasingStyle.Sine)
+                    end
+                end)
             end
         end
 
@@ -1890,7 +2226,7 @@ function Library:CreateToggle(section, config)
         Size = UDim2.new(1, labelWidth, 1, 0),
         BackgroundTransparency = 1,
         Text = name,
-        TextColor3 = C.Text,
+        TextColor3 = default and C.Text or Color3.fromRGB(165, 167, 186),
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1916,8 +2252,16 @@ function Library:CreateToggle(section, config)
     function T:SetValue(v, skipSave)
         T.Value = v
 
-        Tween(Box, { BackgroundColor3 = v and C.Accent or C.SliderBg }, 0.2, Enum.EasingStyle.Sine)
-        Tween(Knob, { Position = v and UDim2.new(1, -8, 0.5, 0) or UDim2.new(0, 8, 0.5, 0) }, 0.2, Enum.EasingStyle.Sine)
+        Tween(Box, { BackgroundColor3 = v and C.Accent or C.SliderBg }, 0.25, Enum.EasingStyle.Sine)
+        Tween(Knob, { Position = v and UDim2.new(1, -8, 0.5, 0) or UDim2.new(0, 8, 0.5, 0) }, 0.25, Enum.EasingStyle.Quint)
+        Tween(Label, { TextColor3 = v and C.Text or Color3.fromRGB(165, 167, 186) }, 0.25, Enum.EasingStyle.Sine)
+
+        Tween(Knob, { Size = UDim2.fromOffset(16, 12) }, 0.1, Enum.EasingStyle.Sine)
+        task.delay(0.1, function()
+            if Knob and Knob.Parent then
+                Tween(Knob, { Size = UDim2.fromOffset(12, 12) }, 0.15, Enum.EasingStyle.Sine)
+            end
+        end)
 
         if v then
             local found = false
@@ -2378,7 +2722,8 @@ function Library:CreateSlider(section, config)
     UIS.InputEnded:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
             dragging = false; setScrollingEnabled(true)
-            Tween(Knob, { Size = UDim2.fromOffset(knobSize, knobSize) }, 0.1, Enum.EasingStyle.Sine)
+            Tween(Knob, { Size = UDim2.fromOffset(knobSize, knobSize) }, 0.12, Enum.EasingStyle.Sine)
+            Tween(Value, { TextColor3 = C.TextDim }, 0.2, Enum.EasingStyle.Sine)
         end
     end)
 
@@ -2386,8 +2731,8 @@ function Library:CreateSlider(section, config)
         v = snap(v)
         S.Value = v
         local p = (v - min) / (max - min)
-        Tween(Fill, { Size = UDim2.new(p, 0, 1, 0) }, 0.15, Enum.EasingStyle.Sine)
-        Tween(Knob, { Position = UDim2.new(p, 0, 0.5, 0) }, 0.15, Enum.EasingStyle.Sine)
+        Tween(Fill, { Size = UDim2.new(p, 0, 1, 0) }, 0.12, Enum.EasingStyle.Sine)
+        Tween(Knob, { Position = UDim2.new(p, 0, 0.5, 0) }, 0.12, Enum.EasingStyle.Sine)
         Value.Text = fmt(v) .. suffix
         callback(v)
         if not skipSave then
@@ -2412,7 +2757,8 @@ function Library:CreateSlider(section, config)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             setScrollingEnabled(false)
-            Tween(Knob, { Size = UDim2.fromOffset(knobSize + 3, knobSize + 3) }, 0.1, Enum.EasingStyle.Sine)
+            Tween(Knob, { Size = UDim2.fromOffset(knobSize + 3, knobSize + 3) }, 0.12, Enum.EasingStyle.Sine)
+            Tween(Value, { TextColor3 = C.Text }, 0.2, Enum.EasingStyle.Sine)
             setFromPosition(input)
             dragAnchorX = input.Position.X
             dragAnchorVal = S.Value
@@ -2423,7 +2769,8 @@ function Library:CreateSlider(section, config)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
             setScrollingEnabled(true)
-            Tween(Knob, { Size = UDim2.fromOffset(knobSize, knobSize) }, 0.1, Enum.EasingStyle.Sine)
+            Tween(Knob, { Size = UDim2.fromOffset(knobSize, knobSize) }, 0.12, Enum.EasingStyle.Sine)
+            Tween(Value, { TextColor3 = C.TextDim }, 0.2, Enum.EasingStyle.Sine)
         end
     end)
 
@@ -2564,9 +2911,19 @@ function Library:CreateDropdown(section, config)
         Tween(Value, { BackgroundColor3 = C.Chip }, 0.15)
     end)
 
+    local function updateSelected()
+        for _, c in pairs(List:GetChildren()) do
+            if c:IsA("TextButton") then
+                Tween(c, { TextColor3 = (c.Text == tostring(D.Value)) and C.Accent or C.Text }, 0.15,
+                    Enum.EasingStyle.Sine)
+            end
+        end
+    end
+
     function D:SetValue(v, skipSave)
         D.Value = v
         Value.Text = v
+        updateSelected()
         callback(v)
         if not skipSave then
             autoSave(configPath, v)
@@ -2583,13 +2940,13 @@ function Library:CreateDropdown(section, config)
             List.Visible = true
             local h = math.max(88, math.min(#D.Options * 24 + 8, 200))
 
-            Tween(Container, { Size = UDim2.new(1, 0, 0, 32 + h) }, 0.3, Enum.EasingStyle.Sine)
-            Tween(List, { Size = UDim2.new(1, 0, 0, h) }, 0.3, Enum.EasingStyle.Sine)
+            Tween(Container, { Size = UDim2.new(1, 0, 0, 32 + h) }, 0.3, Enum.EasingStyle.Quint)
+            Tween(List, { Size = UDim2.new(1, 0, 0, h) }, 0.3, Enum.EasingStyle.Quint)
 
             Tween(Arrow, { Rotation = 90, TextColor3 = C.Accent }, 0.2, Enum.EasingStyle.Quad)
         else
-            Tween(Container, { Size = UDim2.new(1, 0, 0, 28) }, 0.25, Enum.EasingStyle.Sine)
-            Tween(List, { Size = UDim2.new(1, 0, 0, 0) }, 0.25, Enum.EasingStyle.Sine)
+            Tween(Container, { Size = UDim2.new(1, 0, 0, 28) }, 0.25, Enum.EasingStyle.Quint)
+            Tween(List, { Size = UDim2.new(1, 0, 0, 0) }, 0.25, Enum.EasingStyle.Quint)
 
             Tween(Arrow, { Rotation = 0, TextColor3 = C.TextDim }, 0.2, Enum.EasingStyle.Quad)
 
@@ -2610,7 +2967,7 @@ function Library:CreateDropdown(section, config)
                 BackgroundColor3 = C.Section,
                 BorderSizePixel = 0,
                 Text = opt,
-                TextColor3 = C.Text,
+                TextColor3 = (opt == D.Value) and C.Accent or C.Text,
                 TextSize = 12,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Font = Enum.Font.GothamMedium,
@@ -2622,7 +2979,7 @@ function Library:CreateDropdown(section, config)
                 D:SetValue(opt)
                 D:Toggle()
             end)
-            O.MouseEnter:Connect(function() Tween(O, { BackgroundColor3 = C.Accent }, 0.15, Enum.EasingStyle.Sine) end)
+            O.MouseEnter:Connect(function() Tween(O, { BackgroundColor3 = Color3.fromRGB(44, 44, 58) }, 0.15, Enum.EasingStyle.Sine) end)
             O.MouseLeave:Connect(function() Tween(O, { BackgroundColor3 = C.Section }, 0.15, Enum.EasingStyle.Sine) end)
         end
     end
@@ -2686,14 +3043,26 @@ function Library:CreateButton(section, config)
         AutoButtonColor = false
     })
 
+    local hovering = false
+
     Btn.MouseEnter:Connect(function()
+        hovering = true
         Tween(Frame, { BackgroundColor3 = C.Accent }, 0.2, Enum.EasingStyle.Sine)
         Tween(BtnStroke, { Transparency = 1 }, 0.2, Enum.EasingStyle.Sine)
     end)
 
     Btn.MouseLeave:Connect(function()
+        hovering = false
         Tween(Frame, { BackgroundColor3 = C.Element }, 0.2, Enum.EasingStyle.Sine)
         Tween(BtnStroke, { Transparency = 0.3 }, 0.2, Enum.EasingStyle.Sine)
+    end)
+
+    Btn.MouseButton1Down:Connect(function()
+        Tween(Frame, { BackgroundColor3 = C.Accent:Lerp(Color3.new(0, 0, 0), 0.3) }, 0.06, Enum.EasingStyle.Sine)
+    end)
+
+    Btn.MouseButton1Up:Connect(function()
+        Tween(Frame, { BackgroundColor3 = hovering and C.Accent or C.Element }, 0.15, Enum.EasingStyle.Sine)
     end)
 
     Btn.MouseButton1Click:Connect(function()
@@ -3298,15 +3667,16 @@ function Library:CreateKeybinds()
         end
     end)
 
-    RS.RenderStepped:Connect(function()
+    RS.RenderStepped:Connect(function(dt)
         if dragging and dragInput then
             local delta = dragInput.Position - dragStart
-            KeybindsFrame.Position = UDim2.new(
+            local target = UDim2.new(
                 startPos.X.Scale,
                 startPos.X.Offset + delta.X,
                 startPos.Y.Scale,
                 startPos.Y.Offset + delta.Y
             )
+            KeybindsFrame.Position = KeybindsFrame.Position:Lerp(target, math.clamp(dt * 22, 0, 1))
         end
     end)
 
@@ -3510,7 +3880,8 @@ function Library:CreateColorPicker(section, config)
         {
             Name = "PickerFrame",
             Parent = PickerGui,
-            Position = UDim2.new(0.5, -100, 0.5, -100),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0.5, 0),
             Size = UDim2.new(0, 200,
                 0, 206),
             BackgroundColor3 = C.Section,
@@ -3519,6 +3890,7 @@ function Library:CreateColorPicker(section, config)
         })
     New("UICorner", { Parent = PickerFrame, CornerRadius = UDim.new(0, 10) })
     New("UIStroke", { Parent = PickerFrame, Color = C.Accent, Thickness = 1, Transparency = 0.5 })
+    local PickerScale = New("UIScale", { Parent = PickerFrame, Scale = 1 })
 
     local SatVal = New("ImageButton",
         {
@@ -3690,7 +4062,9 @@ function Library:CreateColorPicker(section, config)
 
             if not anyOtherOpen then
                 CP.Open = true
+                PickerScale.Scale = 0.9
                 PickerFrame.Visible = true
+                Tween(PickerScale, { Scale = 1 }, 0.3, Enum.EasingStyle.Back)
             end
         end
     end)
@@ -3752,14 +4126,14 @@ function Library:CreateNotification(config)
     local notifWidth = textSize.X + 36
 
     local notifCount = #Library.Notifications
-    local yOffset = notifCount * 36
+    local yOffset = notifCount * 38
 
     local NotifContainer = New("Frame", {
         Name = "NotificationContainer",
         Parent = Library.NotificationGui,
         AnchorPoint = Vector2.new(0.5, 1),
-        Position = UDim2.new(0.5, 0, 0.92, -yOffset),
-        Size = UDim2.new(0, notifWidth, 0, 28),
+        Position = UDim2.new(0.5, 0, 0.92, -yOffset + 16),
+        Size = UDim2.new(0, notifWidth, 0, 30),
         BackgroundTransparency = 1,
         ZIndex = 10
     })
@@ -3798,11 +4172,24 @@ function Library:CreateNotification(config)
 
     New("UICorner", { Parent = AccentBar, CornerRadius = UDim.new(1, 0) })
 
+    local Progress = New("Frame", {
+        Name = "Progress",
+        Parent = NotifContainer,
+        Position = UDim2.new(0, 12, 1, -4),
+        Size = UDim2.new(1, -24, 0, 2),
+        BackgroundColor3 = C.Accent,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 12
+    })
+
+    New("UICorner", { Parent = Progress, CornerRadius = UDim.new(1, 0) })
+
     local MessageText = New("TextLabel", {
         Name = "Message",
         Parent = NotifFrame,
         Position = UDim2.new(0, 16, 0, 0),
-        Size = UDim2.new(1, -22, 1, 0),
+        Size = UDim2.new(1, -22, 1, -2),
         BackgroundTransparency = 1,
         Text = message,
         TextColor3 = Color3.fromRGB(230, 230, 240),
@@ -3817,10 +4204,14 @@ function Library:CreateNotification(config)
     table.insert(Library.Notifications, NotifContainer)
 
     spawn(function()
+        Tween(NotifContainer, { Position = UDim2.new(0.5, 0, 0.92, -yOffset) }, 0.4, Enum.EasingStyle.Back)
         Tween(AccentBar, { BackgroundTransparency = 0 }, 0.3, Enum.EasingStyle.Quad)
         Tween(NotifFrame, { BackgroundTransparency = 0.05 }, 0.3, Enum.EasingStyle.Quad)
         Tween(NotifStroke, { Transparency = 0.3 }, 0.3, Enum.EasingStyle.Quad)
         Tween(MessageText, { TextTransparency = 0 }, 0.3, Enum.EasingStyle.Quad)
+        Tween(Progress, { BackgroundTransparency = 0.45 }, 0.3, Enum.EasingStyle.Quad)
+
+        Tween(Progress, { Size = UDim2.new(0, 0, 0, 2) }, duration, Enum.EasingStyle.Linear)
 
         task.wait(duration)
 
@@ -3828,6 +4219,7 @@ function Library:CreateNotification(config)
         Tween(NotifFrame, { BackgroundTransparency = 1 }, 0.3, Enum.EasingStyle.Quad)
         Tween(NotifStroke, { Transparency = 1 }, 0.3, Enum.EasingStyle.Quad)
         Tween(MessageText, { TextTransparency = 1 }, 0.3, Enum.EasingStyle.Quad)
+        Tween(Progress, { BackgroundTransparency = 1 }, 0.3, Enum.EasingStyle.Quad)
 
         task.wait(0.3)
 
@@ -3842,7 +4234,7 @@ function Library:CreateNotification(config)
 
         for i, notif in pairs(Library.Notifications) do
             if notif and notif.Parent then
-                Tween(notif, { Position = UDim2.new(0.5, 0, 0.92, -((i - 1) * 36)) }, 0.3, Enum.EasingStyle.Quad)
+                Tween(notif, { Position = UDim2.new(0.5, 0, 0.92, -((i - 1) * 38)) }, 0.3, Enum.EasingStyle.Quint)
             end
         end
     end)
