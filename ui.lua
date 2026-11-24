@@ -196,7 +196,7 @@ local C = {
     Section = Color3.fromRGB(18, 18, 25),
     Element = Color3.fromRGB(26, 26, 35),
     ElementHover = Color3.fromRGB(34, 34, 46),
-    Accent = Color3.fromRGB(255, 255, 255),
+    Accent = Color3.fromHex("7C8CFF"),
     Text = Color3.fromRGB(228, 229, 238),
     TextDim = Color3.fromRGB(122, 124, 144),
     Border = Color3.fromRGB(36, 36, 48),
@@ -306,7 +306,7 @@ local function makeLetters(parent, text, step, textSize)
                 if not letter.Parent then return end
                 task.spawn(function()
                     local h, s, v = C.Accent:ToHSV()
-                    local glow = Color3.fromHSV(h, s, math.max(v - 0.35, 0))
+                    local glow = Color3.fromHSV(h, math.max(s - 0.2, 0), math.min(v + 0.3, 1))
                     Tween(letter, { TextColor3 = glow }, 0.3, Enum.EasingStyle.Sine)
                     task.wait(0.3)
                     Tween(letter, { TextColor3 = C.Accent }, 0.4, Enum.EasingStyle.Sine)
@@ -802,7 +802,7 @@ function Library:CreateWindow(config)
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 0),
         Size = UDim2.fromOffset(12, 12),
-        BackgroundColor3 = Color3.fromRGB(11, 11, 15),
+        BackgroundColor3 = Color3.new(1, 1, 1),
         BackgroundTransparency = 0.15,
         BorderSizePixel = 0
     })
@@ -990,11 +990,23 @@ function Library:CreateWindow(config)
     })
     table.insert(Library.AccentElements, SearchStroke)
 
+    New("TextLabel", {
+        Name = "SearchIcon",
+        Parent = SearchContainer,
+        Position = UDim2.new(0, 10, 0, 0),
+        Size = UDim2.new(0, 16, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "🔍",
+        TextColor3 = C.TextDim,
+        TextSize = 12,
+        Font = Enum.Font.Gotham
+    })
+
     local SearchBox = New("TextBox", {
         Name = "SearchBox",
         Parent = SearchContainer,
-        Position = UDim2.new(0, 14, 0, 0),
-        Size = UDim2.new(1, -26, 1, 0),
+        Position = UDim2.new(0, 32, 0, 0),
+        Size = UDim2.new(1, -40, 1, 0),
         BackgroundTransparency = 1,
         Text = "",
         PlaceholderText = "Search features...",
@@ -1448,7 +1460,7 @@ function Library:CreateWindow(config)
             Size = UDim2.new(0.6, 0, 0.6, 0),
             BackgroundTransparency = 1,
             Text = "\xE2\x98\xB0",
-            TextColor3 = Color3.fromRGB(11, 11, 15),
+            TextColor3 = Color3.new(1, 1, 1),
             TextScaled = true,
             Font = Enum.Font.GothamBold,
             ZIndex = 101
@@ -1532,7 +1544,7 @@ function Library:CreateWindow(config)
         function W:SetVisible(visible)
             _origSetVisible(self, visible)
             if not MobileIconImage.Visible then
-                MobileIcon.Text = visible and "X" or "\xE2\x98\xB0"
+                MobileIcon.Text = visible and "\xE2\x9C\x95" or "\xE2\x98\xB0"
             end
             Tween(MobileButton, { BackgroundTransparency = visible and 0.4 or 0.1 }, 0.15, Enum.EasingStyle.Sine)
         end
@@ -2385,26 +2397,15 @@ function Library:CreateToggle(section, config)
         Transparency = 0
     })
 
-    local CheckShort = New("Frame", {
+    local Check = New("TextLabel", {
         Parent = Box,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromOffset(6, 10.5),
-        Size = UDim2.fromOffset(2, 5),
-        Rotation = -45,
-        BackgroundColor3 = Color3.fromRGB(11, 11, 15),
-        BackgroundTransparency = default and 0 or 1,
-        BorderSizePixel = 0
-    })
-
-    local CheckLong = New("Frame", {
-        Parent = Box,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromOffset(10.5, 9),
-        Size = UDim2.fromOffset(2, 9),
-        Rotation = 45,
-        BackgroundColor3 = Color3.fromRGB(11, 11, 15),
-        BackgroundTransparency = default and 0 or 1,
-        BorderSizePixel = 0
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "✓",
+        TextColor3 = Color3.new(1, 1, 1),
+        TextSize = default and 12 or 7,
+        TextTransparency = default and 0 or 1,
+        Font = Enum.Font.GothamBold
     })
 
     local function setAccentRegistered(on)
@@ -2458,8 +2459,7 @@ function Library:CreateToggle(section, config)
 
         Tween(Box, { BackgroundColor3 = v and C.Accent or C.SliderBg }, 0.2, Enum.EasingStyle.Sine)
         Tween(BoxStroke, { Color = v and C.Accent or C.Border }, 0.2, Enum.EasingStyle.Sine)
-        Tween(CheckShort, { BackgroundTransparency = v and 0 or 1 }, 0.2, Enum.EasingStyle.Sine)
-        Tween(CheckLong, { BackgroundTransparency = v and 0 or 1 }, 0.2, Enum.EasingStyle.Sine)
+        Tween(Check, { TextTransparency = v and 0 or 1, TextSize = v and 12 or 7 }, 0.2, Enum.EasingStyle.Back)
         Tween(Label, { TextColor3 = v and C.Text or Color3.fromRGB(160, 162, 182) }, 0.2, Enum.EasingStyle.Sine)
 
         setAccentRegistered(v)
@@ -3088,14 +3088,12 @@ function Library:CreateButton(section, config)
     Btn.MouseEnter:Connect(function()
         hovering = true
         Tween(Frame, { BackgroundColor3 = C.Accent }, 0.2, Enum.EasingStyle.Sine)
-        Tween(Btn, { TextColor3 = Color3.fromRGB(11, 11, 15) }, 0.2, Enum.EasingStyle.Sine)
         Tween(BtnStroke, { Transparency = 1 }, 0.2, Enum.EasingStyle.Sine)
     end)
 
     Btn.MouseLeave:Connect(function()
         hovering = false
         Tween(Frame, { BackgroundColor3 = C.Element }, 0.2, Enum.EasingStyle.Sine)
-        Tween(Btn, { TextColor3 = C.Text }, 0.2, Enum.EasingStyle.Sine)
         Tween(BtnStroke, { Transparency = 0.2 }, 0.2, Enum.EasingStyle.Sine)
     end)
 
@@ -3668,7 +3666,7 @@ end
 function Library:CreateColorPicker(section, config)
     config = config or {}
     local name = config.Name or "Color"
-    local default = config.Default or Color3.fromRGB(255, 255, 255)
+    local default = config.Default or Color3.fromRGB(124, 140, 255)
     local callback = config.Callback or function() end
 
     local configPath = pathFor(section, name)
