@@ -996,7 +996,7 @@ function Library:CreateWindow(config)
         Position = UDim2.new(0, 10, 0, 0),
         Size = UDim2.new(0, 16, 1, 0),
         BackgroundTransparency = 1,
-        Text = "🔍",
+        Text = "",
         TextColor3 = C.TextDim,
         TextSize = 12,
         Font = Enum.Font.Gotham
