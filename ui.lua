@@ -190,18 +190,18 @@ function Library:PlayNotificationSound(soundType)
 end
 
 local C = {
-    BG = Color3.fromRGB(11, 11, 15),
-    TopBar = Color3.fromRGB(14, 14, 19),
-    Sidebar = Color3.fromRGB(13, 13, 18),
-    Section = Color3.fromRGB(18, 18, 25),
-    Element = Color3.fromRGB(26, 26, 35),
-    ElementHover = Color3.fromRGB(34, 34, 46),
-    Accent = Color3.fromHex("7C8CFF"),
-    Text = Color3.fromRGB(228, 229, 238),
-    TextDim = Color3.fromRGB(122, 124, 144),
-    Border = Color3.fromRGB(36, 36, 48),
-    SliderBg = Color3.fromRGB(38, 38, 50),
-    Chip = Color3.fromRGB(33, 33, 44)
+    BG = Color3.fromRGB(244, 245, 250),
+    TopBar = Color3.fromRGB(255, 255, 255),
+    Sidebar = Color3.fromRGB(250, 251, 254),
+    Section = Color3.fromRGB(255, 255, 255),
+    Element = Color3.fromRGB(240, 241, 247),
+    ElementHover = Color3.fromRGB(229, 232, 242),
+    Accent = Color3.fromHex("5B6CFF"),
+    Text = Color3.fromRGB(28, 29, 38),
+    TextDim = Color3.fromRGB(112, 115, 134),
+    Border = Color3.fromRGB(216, 219, 230),
+    SliderBg = Color3.fromRGB(221, 224, 235),
+    Chip = Color3.fromRGB(231, 233, 242)
 }
 
 Library.AccentElements = {}
@@ -306,7 +306,7 @@ local function makeLetters(parent, text, step, textSize)
                 if not letter.Parent then return end
                 task.spawn(function()
                     local h, s, v = C.Accent:ToHSV()
-                    local glow = Color3.fromHSV(h, math.max(s - 0.2, 0), math.min(v + 0.3, 1))
+                    local glow = Color3.fromHSV(h, math.min(s + 0.1, 1), math.max(v - 0.3, 0))
                     Tween(letter, { TextColor3 = glow }, 0.3, Enum.EasingStyle.Sine)
                     task.wait(0.3)
                     Tween(letter, { TextColor3 = C.Accent }, 0.4, Enum.EasingStyle.Sine)
@@ -546,7 +546,7 @@ local function ensureTooltip()
     TooltipFrame = New("Frame", {
         Parent = TooltipGui,
         Size = UDim2.fromOffset(10, 24),
-        BackgroundColor3 = Color3.fromRGB(20, 20, 27),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
         BorderSizePixel = 0,
         Visible = false,
         ZIndex = 50
@@ -951,10 +951,10 @@ function Library:CreateWindow(config)
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -12, 0.5, 0),
         Size = UDim2.fromOffset(26, 26),
-        BackgroundColor3 = Color3.fromRGB(70, 28, 38),
+        BackgroundColor3 = Color3.fromRGB(255, 226, 230),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Text = "✕",
+        Text = "X",
         TextColor3 = C.TextDim,
         TextSize = 12,
         Font = Enum.Font.GothamBold,
@@ -963,7 +963,7 @@ function Library:CreateWindow(config)
     Corner(CloseBtn, 8)
 
     CloseBtn.MouseEnter:Connect(function()
-        Tween(CloseBtn, { BackgroundTransparency = 0, TextColor3 = Color3.fromRGB(255, 120, 135) }, 0.15,
+        Tween(CloseBtn, { BackgroundTransparency = 0, TextColor3 = Color3.fromRGB(220, 60, 80) }, 0.15,
             Enum.EasingStyle.Sine)
     end)
 
@@ -990,23 +990,11 @@ function Library:CreateWindow(config)
     })
     table.insert(Library.AccentElements, SearchStroke)
 
-    New("TextLabel", {
-        Name = "SearchIcon",
-        Parent = SearchContainer,
-        Position = UDim2.new(0, 10, 0, 0),
-        Size = UDim2.new(0, 16, 1, 0),
-        BackgroundTransparency = 1,
-        Text = "🔍",
-        TextColor3 = C.TextDim,
-        TextSize = 12,
-        Font = Enum.Font.Gotham
-    })
-
     local SearchBox = New("TextBox", {
         Name = "SearchBox",
         Parent = SearchContainer,
-        Position = UDim2.new(0, 32, 0, 0),
-        Size = UDim2.new(1, -40, 1, 0),
+        Position = UDim2.new(0, 14, 0, 0),
+        Size = UDim2.new(1, -26, 1, 0),
         BackgroundTransparency = 1,
         Text = "",
         PlaceholderText = "Search features...",
@@ -1324,7 +1312,7 @@ function Library:CreateWindow(config)
 
             Backdrop.Visible = true
             Backdrop.BackgroundTransparency = 1
-            Tween(Backdrop, { BackgroundTransparency = 0.55 }, 0.3, Enum.EasingStyle.Sine)
+            Tween(Backdrop, { BackgroundTransparency = 0.7 }, 0.3, Enum.EasingStyle.Sine)
         else
             Tween(MainUIScale, { Scale = W.BaseScale * 0.95 }, 0.25, Enum.EasingStyle.Quad)
             Tween(Main, { GroupTransparency = 1 }, 0.25, Enum.EasingStyle.Quad)
@@ -1544,7 +1532,7 @@ function Library:CreateWindow(config)
         function W:SetVisible(visible)
             _origSetVisible(self, visible)
             if not MobileIconImage.Visible then
-                MobileIcon.Text = visible and "\xE2\x9C\x95" or "\xE2\x98\xB0"
+                MobileIcon.Text = visible and "X" or "\xE2\x98\xB0"
             end
             Tween(MobileButton, { BackgroundTransparency = visible and 0.4 or 0.1 }, 0.15, Enum.EasingStyle.Sine)
         end
@@ -1990,9 +1978,9 @@ function Library:CreateWindow(config)
         Btn.MouseEnter:Connect(function()
             if W.CurrentTopTab ~= T then
                 Tween(Btn, { BackgroundTransparency = 0.6 }, 0.15)
-                Tween(Label, { TextColor3 = Color3.fromRGB(190, 192, 212) }, 0.15)
-                if T.Icon then Tween(T.Icon, { ImageColor3 = Color3.fromRGB(190, 192, 212) }, 0.15) end
-                if T.Glyph then Tween(T.Glyph, { TextColor3 = Color3.fromRGB(190, 192, 212) }, 0.15) end
+                Tween(Label, { TextColor3 = Color3.fromRGB(60, 63, 82) }, 0.15)
+                if T.Icon then Tween(T.Icon, { ImageColor3 = Color3.fromRGB(60, 63, 82) }, 0.15) end
+                if T.Glyph then Tween(T.Glyph, { TextColor3 = Color3.fromRGB(60, 63, 82) }, 0.15) end
             end
         end)
 
@@ -2150,10 +2138,10 @@ function Library:CreateWindow(config)
 
             Btn.MouseEnter:Connect(function()
                 if W.CurrentCategory ~= Cat then
-                    Tween(Btn, { TextColor3 = Color3.fromRGB(190, 192, 212), BackgroundTransparency = 0.6 }, 0.2,
+                    Tween(Btn, { TextColor3 = Color3.fromRGB(60, 63, 82), BackgroundTransparency = 0.6 }, 0.2,
                         Enum.EasingStyle.Sine)
                     if Cat.Icon then
-                        Tween(Cat.Icon, { ImageColor3 = Color3.fromRGB(190, 192, 212) }, 0.2, Enum.EasingStyle.Sine)
+                        Tween(Cat.Icon, { ImageColor3 = Color3.fromRGB(60, 63, 82) }, 0.2, Enum.EasingStyle.Sine)
                     end
                 end
             end)
@@ -2397,16 +2385,16 @@ function Library:CreateToggle(section, config)
         Transparency = 0
     })
 
-    local Check = New("TextLabel", {
+    local Check = New("Frame", {
         Parent = Box,
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Text = "✓",
-        TextColor3 = Color3.new(1, 1, 1),
-        TextSize = default and 12 or 7,
-        TextTransparency = default and 0 or 1,
-        Font = Enum.Font.GothamBold
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        Size = default and UDim2.fromOffset(8, 8) or UDim2.fromOffset(2, 2),
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        BackgroundTransparency = default and 0 or 1,
+        BorderSizePixel = 0
     })
+    Corner(Check, 2)
 
     local function setAccentRegistered(on)
         for i = #Library.AccentElements, 1, -1 do
@@ -2433,7 +2421,7 @@ function Library:CreateToggle(section, config)
         Size = UDim2.new(1, labelWidth, 1, 0),
         BackgroundTransparency = 1,
         Text = name,
-        TextColor3 = default and C.Text or Color3.fromRGB(160, 162, 182),
+        TextColor3 = default and C.Text or Color3.fromRGB(118, 121, 140),
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextTruncate = Enum.TextTruncate.AtEnd,
@@ -2459,8 +2447,8 @@ function Library:CreateToggle(section, config)
 
         Tween(Box, { BackgroundColor3 = v and C.Accent or C.SliderBg }, 0.2, Enum.EasingStyle.Sine)
         Tween(BoxStroke, { Color = v and C.Accent or C.Border }, 0.2, Enum.EasingStyle.Sine)
-        Tween(Check, { TextTransparency = v and 0 or 1, TextSize = v and 12 or 7 }, 0.2, Enum.EasingStyle.Back)
-        Tween(Label, { TextColor3 = v and C.Text or Color3.fromRGB(160, 162, 182) }, 0.2, Enum.EasingStyle.Sine)
+        Tween(Check, { BackgroundTransparency = v and 0 or 1, Size = v and UDim2.fromOffset(8, 8) or UDim2.fromOffset(2, 2) }, 0.2, Enum.EasingStyle.Back)
+        Tween(Label, { TextColor3 = v and C.Text or Color3.fromRGB(118, 121, 140) }, 0.2, Enum.EasingStyle.Sine)
 
         setAccentRegistered(v)
 
@@ -2712,7 +2700,7 @@ function Library:CreateSlider(section, config)
         Parent = Knob,
         Color = C.Accent,
         Thickness = 2,
-        Transparency = 1
+        Transparency = 0.5
     })
     table.insert(Library.AccentElements, KnobStroke)
 
@@ -2727,7 +2715,7 @@ function Library:CreateSlider(section, config)
     })
 
     Btn.MouseEnter:Connect(function()
-        Tween(Track, { BackgroundColor3 = Color3.fromRGB(50, 50, 66) }, 0.15)
+        Tween(Track, { BackgroundColor3 = Color3.fromRGB(206, 209, 224) }, 0.15)
         Tween(Frame, { BackgroundColor3 = C.ElementHover }, 0.15)
     end)
 
@@ -2757,7 +2745,7 @@ function Library:CreateSlider(section, config)
 
     local function endDragVisuals()
         Tween(Knob, { Size = UDim2.fromOffset(knobSize, knobSize) }, 0.15, Enum.EasingStyle.Sine)
-        Tween(KnobStroke, { Transparency = 1 }, 0.2, Enum.EasingStyle.Sine)
+        Tween(KnobStroke, { Transparency = 0.5 }, 0.2, Enum.EasingStyle.Sine)
         Tween(Value, { TextColor3 = C.TextDim }, 0.2, Enum.EasingStyle.Sine)
     end
 
@@ -2940,7 +2928,7 @@ function Library:CreateDropdown(section, config)
     })
 
     Btn.MouseEnter:Connect(function()
-        Tween(Value, { BackgroundColor3 = Color3.fromRGB(44, 44, 58) }, 0.15)
+        Tween(Value, { BackgroundColor3 = Color3.fromRGB(224, 227, 238) }, 0.15)
         Tween(Container, { BackgroundColor3 = C.ElementHover }, 0.15)
     end)
 
@@ -3088,12 +3076,14 @@ function Library:CreateButton(section, config)
     Btn.MouseEnter:Connect(function()
         hovering = true
         Tween(Frame, { BackgroundColor3 = C.Accent }, 0.2, Enum.EasingStyle.Sine)
+        Tween(Btn, { TextColor3 = Color3.new(1, 1, 1) }, 0.2, Enum.EasingStyle.Sine)
         Tween(BtnStroke, { Transparency = 1 }, 0.2, Enum.EasingStyle.Sine)
     end)
 
     Btn.MouseLeave:Connect(function()
         hovering = false
         Tween(Frame, { BackgroundColor3 = C.Element }, 0.2, Enum.EasingStyle.Sine)
+        Tween(Btn, { TextColor3 = C.Text }, 0.2, Enum.EasingStyle.Sine)
         Tween(BtnStroke, { Transparency = 0.2 }, 0.2, Enum.EasingStyle.Sine)
     end)
 
@@ -3371,7 +3361,7 @@ function Library:CreateInput(section, config)
     end)
 
     Box.MouseEnter:Connect(function()
-        Tween(Box, { BackgroundColor3 = Color3.fromRGB(44, 44, 58) }, 0.15)
+        Tween(Box, { BackgroundColor3 = Color3.fromRGB(224, 227, 238) }, 0.15)
     end)
 
     Box.MouseLeave:Connect(function()
@@ -3578,7 +3568,7 @@ function Library:CreateKeybinds()
             Size = UDim2.new(1, -66, 1, 0),
             BackgroundTransparency = 1,
             Text = name,
-            TextColor3 = active and Color3.fromRGB(255, 255, 255) or C.TextDim,
+            TextColor3 = active and C.Text or C.TextDim,
             TextSize = 12,
             Font = Enum.Font.GothamMedium,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -3611,7 +3601,7 @@ function Library:CreateKeybinds()
             KeyLabel.Text = newKey or "None"
             AccentBar.Visible = newActive and true or false
             Tween(NameLabel, {
-                TextColor3 = newActive and Color3.fromRGB(255, 255, 255) or C.TextDim
+                TextColor3 = newActive and C.Text or C.TextDim
             }, 0.2, Enum.EasingStyle.Sine)
         end
 
@@ -3698,7 +3688,7 @@ function Library:CreateColorPicker(section, config)
         BorderSizePixel = 0
     })
     Corner(ColorBox, 6)
-    New("UIStroke", { Parent = ColorBox, Color = Color3.fromRGB(255, 255, 255), Thickness = 1, Transparency = 0.8 })
+    New("UIStroke", { Parent = ColorBox, Color = Color3.fromRGB(0, 0, 0), Thickness = 1, Transparency = 0.85 })
 
     local Btn = New("TextButton", {
         Parent = Frame,
@@ -4086,7 +4076,7 @@ function Library:CreateNotification(config)
         AnchorPoint = Vector2.new(1, 1),
         Position = UDim2.new(1, notifWidth + 30, 1, -16),
         Size = UDim2.fromOffset(notifWidth, notifHeight),
-        BackgroundColor3 = Color3.fromRGB(18, 18, 24),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
         BorderSizePixel = 0,
         GroupTransparency = 1
     })
@@ -4122,7 +4112,7 @@ function Library:CreateNotification(config)
         Size = UDim2.new(1, -24, 1, -26),
         BackgroundTransparency = 1,
         Text = message,
-        TextColor3 = Color3.fromRGB(230, 230, 240),
+        TextColor3 = Color3.fromRGB(28, 29, 38),
         TextSize = 12,
         Font = Enum.Font.GothamMedium,
         TextWrapped = true,
