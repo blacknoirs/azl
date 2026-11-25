@@ -3983,7 +3983,7 @@ local function buildInput(section, config)
         Font = Enum.Font.Gotham
     })
 
-    local boxH = Library.IsMobile ? 28 or 24
+    local boxH = Library.IsMobile and 28 or 24
     local Box = New("TextBox", {
         Parent = Frame,
         Position = UDim2.new(0, 8, 1, -(boxH + 7)),
