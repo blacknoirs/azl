@@ -1163,7 +1163,7 @@ function Library:CreateWindow(config)
         Parent = SG,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 0),
-        Size = UDim2.fromOffset(780, 500),
+        Size = UDim2.fromOffset(940, 600),
         BackgroundColor3 = C.BG,
         BorderSizePixel = 0,
         GroupTransparency = 1
@@ -1633,12 +1633,12 @@ function Library:CreateWindow(config)
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
         ScrollingDirection = Enum.ScrollingDirection.Y
     })
-    Pad(ContentScroll, M.Pad, M.Pad, M.Pad, M.Pad)
+    Pad(ContentScroll, M.Pad, M.Pad, 0, M.Pad)
 
     local Grid = New("Frame", {
         Name = "Grid",
         Parent = ContentScroll,
-        Size = UDim2.new(1, 0, 0, 0),
+        Size = UDim2.new(1, -M.Pad, 0, 0),
         BackgroundTransparency = 1,
         AutomaticSize = Enum.AutomaticSize.Y
     })
@@ -1856,8 +1856,8 @@ function Library:CreateWindow(config)
             width = math.clamp(availX - 24, 300, 640)
             height = math.clamp(availY - 24, 230, 430)
         else
-            width = math.clamp(availX - 40, 560, 780)
-            height = math.clamp(availY - 40, 380, 500)
+            width = math.clamp(availX - 40, 560, 940)
+            height = math.clamp(availY - 40, 380, 620)
         end
 
         Main.Size = UDim2.fromOffset(width, height)
