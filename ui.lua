@@ -485,15 +485,25 @@ function Lucide.Resolve(name)
         if ok then result = normalizeIconData(a, b, c) end
     elseif Lucide.Module then
         local mod = Lucide.Module
-        local fn = mod.Icon or mod.GetIcon or mod.getIcon
-        if typeof(fn) == "function" then
-            local ok, a, b, c = pcall(fn, key)
-            if ok then result = normalizeIconData(a, b, c) end
-            if not result then
-                ok, a, b, c = pcall(fn, key, "lucide")
-                if ok then result = normalizeIconData(a, b, c) end
-            end
-        end
+        local mod = Lucide.Module
+
+local ok, a, b, c = pcall(function()
+    return mod.GetIcon(key)
+end)
+
+if ok then
+    result = normalizeIconData(a, b, c)
+end
+
+if not result then
+    ok, a, b, c = pcall(function()
+        return mod.Icon(key)
+    end)
+
+    if ok then
+        result = normalizeIconData(a, b, c)
+    end
+end
     end
 
     if Lucide.Ready or Lucide.Provider then
