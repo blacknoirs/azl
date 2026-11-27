@@ -1,7 +1,7 @@
 --[[
     noir
     ---------------------------------------------------------------
-    local Library = loadstring(game:HttpGet("verity"))()
+    local Library = loadstring(game:HttpGet("https://github.com/blacknoirs/azl/raw/main/verity.lua"))()
 
     local Window = Library:CreateWindow({
         Name = "MyHub",            -- unique id: GUI names + single-instance guard
