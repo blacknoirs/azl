@@ -1,7 +1,7 @@
 --[[
-    Universal Roblox UI Library
+    noir
     ---------------------------------------------------------------
-    local Library = loadstring(game:HttpGet("YOUR_URL"))()
+    local Library = loadstring(game:HttpGet("verity"))()
 
     local Window = Library:CreateWindow({
         Name = "MyHub",            -- unique id: GUI names + single-instance guard
